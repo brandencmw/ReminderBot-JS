@@ -1,6 +1,5 @@
 const firebase = require("./firebase");
 const config = require("./config");
-const { Timestamp } = require("@google-cloud/firestore");
 const botTriggers = ["!addremind", "!remremind", "!showremind"];
 
 function getDatetime(message) {
@@ -117,6 +116,7 @@ function parseMessage(message) {
 
 config.client.once("ready", () => {
   console.log(`Logged in as ${config.client.user.tag}!`);
+  firebase.checkForReminders();
   setInterval(function () {
     firebase.checkForReminders();
   }, 60000);

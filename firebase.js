@@ -1,4 +1,5 @@
 const config = require("./config");
+const { Timestamp } = require("@google-cloud/firestore");
 
 function addReminder(reminder, db = null) {
   if (!db) db = config.admin.firestore();
@@ -9,17 +10,18 @@ function addReminder(reminder, db = null) {
 
 async function checkForReminders(db = null) {
   if (!db) db = config.admin.firestore();
-  const channel = config.client.channels.cache("829052528901357581");
+  const channel = config.client.channels.cache.get("829052528901357581");
+  let date = new Date();
+  date.setSeconds(0);
+  date.setMilliseconds(0);
+
   console.log("Checking for reminders");
-  const currentTime = new Date();
-  currentTime.setSeconds(0);
-  const reminders = await db
-    .collection("reminders")
-    .where("showtime", "==", currentTime)
-    .get();
+  const reminders = await db.collection("reminders").get();
   if (!reminders.empty) {
     reminders.forEach((reminder) => {
-      config.channel.send(`$[{reminder.title}](${reminder.link})`);
+      if (reminder.data().showtime.toDate().getTime() == date.getTime()) {
+        channel.send(`${reminder.data().title}: ${reminder.data().link}`);
+      }
     });
   }
 }
