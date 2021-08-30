@@ -21,9 +21,8 @@ function formatTimeStamp(googleTimeStamp) {
 }
 
 async function showReminders(db = null) {
-  if (!db) db = config.admin.firestore();
   const channel = config.client.channels.cache.get("829052528901357581");
-  const reminders = await db.collection("reminders").get();
+  const reminders = await config.db.collection("reminders").get();
   var formattedDate;
   if (!reminders.empty) {
     channel.send("You have the following reminders...");
@@ -48,7 +47,7 @@ function getIntervalVerb(message) {
       shortVerb = "y";
       break;
     case "monthly":
-      shortVerb = "mo";
+      shortVerb = "M";
       break;
     case "weekly":
       shortVerb = "w";

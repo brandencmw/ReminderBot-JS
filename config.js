@@ -16,5 +16,6 @@ const serviceAccount = require("./firebase_auth/js-reminder-bot-firebase-adminsd
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
+const db = admin.firestore();
 
-module.exports = { moment, client, admin };
+module.exports = { moment, client, db };
