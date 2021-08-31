@@ -2,8 +2,13 @@ const firebase = require("./firebase");
 const config = require("./config");
 const botTriggers = ["!addremind", "!remremind", "!showremind"];
 
+function SyntaxError(errorMessage) {
+  this.message = errorMessage;
+  this.name = "Syntax Error";
+}
+
 function getDatetime(message) {
-  var datetimeString;
+  let datetimeString;
   if (message.includes("recurring")) {
     datetimeString = message
       .slice(message.indexOf("at") + 1, message.indexOf("recurring") - 1)
@@ -11,19 +16,20 @@ function getDatetime(message) {
   } else {
     datetimeString = message.slice(message.indexOf("at") + 1).join(" ");
   }
-  return config.moment(datetimeString, "HH:mm ddd, MMM D, YYYY");
+
+  return config.moment(datetimeString, "HH:mm ddd, MMM D, YYYY", true);
 }
 
 function formatTimeStamp(googleTimeStamp) {
-  var formattedDate = googleTimeStamp.toDate();
+  let formattedDate = googleTimeStamp.toDate();
   formattedDate = config.moment(formattedDate);
   return formattedDate.format("MMM D, YYYY [at] h:mm A");
 }
 
-async function showReminders(db = null) {
+async function showReminders() {
   const channel = config.client.channels.cache.get("829052528901357581");
   const reminders = await config.db.collection("reminders").get();
-  var formattedDate;
+  let formattedDate;
   if (!reminders.empty) {
     channel.send("You have the following reminders...");
 
@@ -76,7 +82,7 @@ function getIntervalLength(message) {
 }
 
 function parseMessage(message) {
-  messageObject = {
+  const messageObject = {
     title: "",
     showtime: "",
     recurring: false,
@@ -84,31 +90,28 @@ function parseMessage(message) {
     intervalLen: 0,
     link: "",
   };
-  var splitMessage = message.split(" ");
+  let splitMessage = message.split(" ");
   if (message.includes(" at")) {
     messageObject.title = splitMessage
       .splice(1, splitMessage.indexOf("at") - 1)
       .join(" ");
-  } else if (message.includes(" in")) {
-    messageObject.title = splitMessage
-      .splice(1, splitMessage.indexOf("in") - 1)
-      .join(" ");
   } else {
-    messageObject.title = splitMessage.splice(1, splitMessage.length).join(" ");
+    throw new SyntaxError("Missing keyword 'at' to determine reminder time");
   }
 
-  if (splitMessage[0] === "!addremind") {
-    messageObject.link = splitMessage.pop();
-    messageObject.recurring = splitMessage.includes("recurring");
-    if (message.includes(" at")) {
-      messageObject.showtime = getDatetime(splitMessage);
-    }
+  messageObject.link = splitMessage.pop();
+  messageObject.recurring = splitMessage.includes("recurring");
 
-    if (messageObject.recurring) {
-      messageObject.intervalVerb = getIntervalVerb(splitMessage);
-      messageObject.intervalLen = getIntervalLength(splitMessage);
-    }
+  messageObject.showtime = getDatetime(splitMessage);
+  if (!messageObject.showtime.isValid()) {
+    throw new SyntaxError("Date format invalid");
   }
+
+  if (messageObject.recurring) {
+    messageObject.intervalVerb = getIntervalVerb(splitMessage);
+    messageObject.intervalLen = getIntervalLength(splitMessage);
+  }
+
   return messageObject;
 }
 
@@ -121,14 +124,21 @@ config.client.once("ready", () => {
 });
 
 config.client.on("message", (msg) => {
+  const channel = config.client.channels.cache.get("829052528901357581");
+
   if (msg.author.bot) return;
 
   if (botTriggers.some((trigger) => msg.content.startsWith(trigger))) {
-    messageObject = parseMessage(msg.content);
     if (msg.content.startsWith("!addremind")) {
-      firebase.addReminder(messageObject);
+      try {
+        let messageObject = parseMessage(msg.content);
+        firebase.addReminder(messageObject);
+      } catch (err) {
+        channel.send(`${err.name}: ${err.message}`);
+      }
     } else if (msg.content.startsWith("!remremind")) {
-      firebase.removeReminder(messageObject);
+      let title = msg.content.substring(msg.content.indexOf(" "));
+      firebase.removeReminder(title);
     } else if (msg.content.startsWith("!showremind")) {
       showReminders();
     }
