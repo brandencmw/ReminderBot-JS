@@ -102,9 +102,8 @@ function parseMessage(message) {
     messageObject.recurring = splitMessage.includes("recurring");
     if (message.includes(" at")) {
       messageObject.showtime = getDatetime(splitMessage);
-    } else if (message.includes(" in")) {
-      calculate_datetime(message).isoformat();
     }
+
     if (messageObject.recurring) {
       messageObject.intervalVerb = getIntervalVerb(splitMessage);
       messageObject.intervalLen = getIntervalLength(splitMessage);
@@ -115,7 +114,7 @@ function parseMessage(message) {
 
 config.client.once("ready", () => {
   console.log(`Logged in as ${config.client.user.tag}!`);
-  firebase.checkForReminders();
+  firebase.updateReminders();
   setInterval(function () {
     firebase.checkForReminders();
   }, 60000);
