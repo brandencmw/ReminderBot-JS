@@ -34,8 +34,8 @@ async function checkForReminders() {
   });
 }
 
-function removeReminder(reminder) {
-  config.db.collection("reminders").doc(reminder.title).delete();
+function removeReminder(title) {
+  config.db.collection("reminders").doc(title).delete();
   return;
 }
 

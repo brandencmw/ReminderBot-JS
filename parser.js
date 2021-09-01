@@ -1,11 +1,7 @@
 const firebase = require("./firebase");
 const config = require("./config");
+const errors = require("./errors");
 const botTriggers = ["!addremind", "!remremind", "!showremind"];
-
-function SyntaxError(errorMessage) {
-  this.message = errorMessage;
-  this.name = "Syntax Error";
-}
 
 function getDatetime(message) {
   let datetimeString;
@@ -17,7 +13,7 @@ function getDatetime(message) {
     datetimeString = message.slice(message.indexOf("at") + 1).join(" ");
   }
 
-  return config.moment(datetimeString, "HH:mm ddd, MMM D, YYYY", true);
+  return config.moment(datetimeString, "HH:mm ddd, MMM D, YYYY");
 }
 
 function formatTimeStamp(googleTimeStamp) {
@@ -68,6 +64,7 @@ function getIntervalVerb(message) {
       shortVerb = "m";
       break;
     default:
+      throw new errors.SyntaxError("Missing or incorrect recurrence keyword");
   }
   return shortVerb;
 }
@@ -77,7 +74,7 @@ function getIntervalLength(message) {
   if (Number.isInteger(parseFloat(number))) {
     return number;
   } else {
-    console.log("ERROR! NO NUMBER FOUND");
+    throw new errors.SyntaxError("Missing or incorrect recurrence length");
   }
 }
 
@@ -96,7 +93,9 @@ function parseMessage(message) {
       .splice(1, splitMessage.indexOf("at") - 1)
       .join(" ");
   } else {
-    throw new SyntaxError("Missing keyword 'at' to determine reminder time");
+    throw new errors.SyntaxError(
+      "Missing keyword 'at' to determine reminder time"
+    );
   }
 
   messageObject.link = splitMessage.pop();
@@ -104,7 +103,9 @@ function parseMessage(message) {
 
   messageObject.showtime = getDatetime(splitMessage);
   if (!messageObject.showtime.isValid()) {
-    throw new SyntaxError("Date format invalid");
+    throw new errors.DateError("Date format invalid");
+  } else if (messageObject.showtime.toDate().getTime() < new Date().getTime()) {
+    throw new errors.DateError("Date cannot be a date in the past");
   }
 
   if (messageObject.recurring) {
@@ -137,7 +138,8 @@ config.client.on("message", (msg) => {
         channel.send(`${err.name}: ${err.message}`);
       }
     } else if (msg.content.startsWith("!remremind")) {
-      let title = msg.content.substring(msg.content.indexOf(" "));
+      let title = msg.content.substring(msg.content.indexOf(" ") + 1);
+      console.log(title);
       firebase.removeReminder(title);
     } else if (msg.content.startsWith("!showremind")) {
       showReminders();
