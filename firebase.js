@@ -17,8 +17,8 @@ const config = require("./config");
 # _______________________________________________________________________________________ #
 #########################################################################################*/
 function addReminder(reminder) {
-  var docRef = config.db.collection("reminders").doc(reminder.title);
-  docRef.set(reminder);
+  let docRef = config.db.collection("reminders").doc(reminder.title); //Create new reference for reminder to be added
+  docRef.set(reminder); //Put reminder object in new reminder reference
   return;
 }
 
@@ -40,26 +40,37 @@ function addReminder(reminder) {
 async function checkForReminders() {
   const channel = config.client.channels.cache.get("829052528901357581");
   const remCollection = config.db.collection("reminders");
+
   const now = new Date();
-  let updatedTime;
+  // Set seconds and milliseconds to 0 to compare to document TimeStamps
   now.setSeconds(0);
   now.setMilliseconds(0);
 
-  console.log("Checking for reminders");
-
+  let updatedTime;
   const reminders = await remCollection.get();
+  // Loop through all reminders in the db to find any that are supposed to show
+  // at the current time
   reminders.forEach((reminder) => {
+    // If the time in the reminder is equal to the current time, it should be sent to
+    // the user
     if (reminder.data().showtime.toDate().getTime() == now.getTime()) {
       channel.send(`${reminder.data().title}: ${reminder.data().link}`);
+      // If the reminder is recurring, its time is updated so it will show again,
+      // otherwise, it is removed from the db
       if (reminder.data().recurring) {
+        // Switch to moment object for easier manipulation
         updatedTime = config.moment(reminder.data().showtime.toDate());
+        // Add interval specified by user
         updatedTime.add(
           reminder.data().intervalLen,
           reminder.data().intervalVerb
         );
+        // Update document with new time
         remCollection
           .doc(reminder.data().title)
           .update({ showtime: updatedTime });
+      } else {
+        removeReminder(reminder.data().title);
       }
     }
   });
@@ -108,11 +119,17 @@ async function updateReminders() {
   const now = new Date();
   let updatedTime;
 
-  const reminders = await remCollection.get();
+  const reminders = await remCollection.get(); //Get all reminders in the db
+  // Loop through each reminder to see if its timestamp needs to be updated
   reminders.forEach((reminder) => {
+    // If the stored time is before the current time, it must be updated or removed
     if (reminder.data().showtime.toDate().getTime() < now.getTime()) {
+      // If it is a recurring reminder, the time must be updated, otherwise removed
       if (reminder.data().recurring) {
+        // Switching to moment object for easier manipulation
         updatedTime = config.moment(reminder.data().showtime.toDate());
+        // Update time by specified interval until it is past the current time
+        // so it can be shown again
         do {
           console.log("Updating");
           updatedTime.add(
@@ -120,6 +137,7 @@ async function updateReminders() {
             reminder.data().intervalVerb
           );
         } while (updatedTime.toDate().getTime() < now.getTime());
+        // Update document with correct showtime
         remCollection
           .doc(reminder.data().title)
           .update({ showtime: updatedTime });
