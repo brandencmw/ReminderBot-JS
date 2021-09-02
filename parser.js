@@ -1,8 +1,28 @@
+// This file contains all functions relating to parsing Discord user messages
+// and sending return messages to the user
+
 const firebase = require("./firebase");
 const config = require("./config");
 const errors = require("./errors");
 const botTriggers = ["!addremind", "!remremind", "!showremind"];
 
+/*#########################################################################################
+# getDatetime function                                                                    #
+# _______________________________________________________________________________________ #
+# Description:                                                                            #
+# This function will parse the datetime string from the full Discord message by taking    #
+# the substring from the word 'at' onward or between 'at' and 'recurring' for recurring   #
+# reminders                                                                               #
+# _______________________________________________________________________________________ #
+# Parameters:                                                                             # 
+# message: A string containing the Discord message sent by the user from which the        #
+#         datetime part needs to be extracted                                             #
+# _______________________________________________________________________________________ #
+# Returns:                                                                                #
+# A moment.js object that has the proper datetime specified by the user as long as it     #
+# matches the required formatting string. Otherwise an invalid moment object is returned  #
+# _______________________________________________________________________________________ #
+#########################################################################################*/
 function getDatetime(message) {
   let datetimeString;
   if (message.includes("recurring")) {
@@ -16,12 +36,41 @@ function getDatetime(message) {
   return config.moment(datetimeString, "HH:mm ddd, MMM D, YYYY");
 }
 
+/*#########################################################################################
+# formatTimeStamp function                                                                #
+# _______________________________________________________________________________________ #
+# Description:                                                                            #
+# This function returns a formatted moment object in order to send a formatted message    #
+# to the user once they ask to be shown their reminders                                   #
+# _______________________________________________________________________________________ #
+# Parameters:                                                                             # 
+# googleTimeStamp: a TimeStamp object that is returned from Firestore specifying what     #
+#                  time the reminder is to appear                                         #
+# _______________________________________________________________________________________ #
+# Returns:                                                                                #
+# A moment.js object formatted by the specified formatting string                         #
+# _______________________________________________________________________________________ #
+#########################################################################################*/
 function formatTimeStamp(googleTimeStamp) {
   let formattedDate = googleTimeStamp.toDate();
   formattedDate = config.moment(formattedDate);
   return formattedDate.format("MMM D, YYYY [at] h:mm A");
 }
 
+/*#########################################################################################
+# showReminders function                                                                  #
+# _______________________________________________________________________________________ #
+# Description:                                                                            #
+# This function shows the user all reminders they have stored in the database including   #
+# the next time that the reminder is set to show                                          #
+# _______________________________________________________________________________________ #
+# Parameters:                                                                             # 
+# none                                                                                    #
+# _______________________________________________________________________________________ #
+# Returns:                                                                                #
+# none                                                                                    #
+# _______________________________________________________________________________________ #
+#########################################################################################*/
 async function showReminders() {
   const channel = config.client.channels.cache.get("829052528901357581");
   const reminders = await config.db.collection("reminders").get();
@@ -40,10 +89,26 @@ async function showReminders() {
   }
 }
 
+/*#########################################################################################
+# getIntervalVerb function                                                                #
+# _______________________________________________________________________________________ #
+# Description:                                                                            #
+# This function will find the type of recurrence the user wants for this reminder.        #
+# Possible options are yearly, monthly, weekly, daily, hourly, and minutely recurrence    #
+# _______________________________________________________________________________________ #
+# Parameters:                                                                             # 
+# message: A string containing the Discord message from which the recurrence type must be #
+#          extracted                                                                      #
+# _______________________________________________________________________________________ #
+# Returns:                                                                                #
+# shortVerb: a one-character String that represents the recurrence type specified by the  #
+#            user. Works with moment.js formatting to make recurrence easier. if one      #
+#            cannot be found, a syntax error will be thrown                               #
+# _______________________________________________________________________________________ #
+#########################################################################################*/
 function getIntervalVerb(message) {
-  var verb = message[message.indexOf("recurring") + 1];
-  console.log(verb);
-  var shortVerb;
+  let verb = message[message.indexOf("recurring") + 1];
+  let shortVerb;
   switch (verb) {
     case "yearly":
       shortVerb = "y";
@@ -69,8 +134,24 @@ function getIntervalVerb(message) {
   return shortVerb;
 }
 
+/*#########################################################################################
+# getIntervalLength function                                                              #
+# _______________________________________________________________________________________ #
+# Description:                                                                            #
+# This function gets the length of the interval specified by the user. For example, if    #
+# the user specifies recurrence of 'weekly 3' the reminder will recur every 3 weeks       #
+# _______________________________________________________________________________________ #
+# Parameters:                                                                             # 
+# message: A string containing the Discord message from which the interval length is to   #
+#          be extracted                                                                   #
+# _______________________________________________________________________________________ #
+# Returns:                                                                                #
+# The number representing the recurrence length. Or, if one cannot be found, a syntax     #
+# error will be thrown                                                                    #
+# _______________________________________________________________________________________ #
+#########################################################################################*/
 function getIntervalLength(message) {
-  var number = message[message.indexOf("recurring") + 2];
+  let number = message[message.indexOf("recurring") + 2];
   if (Number.isInteger(parseFloat(number))) {
     return number;
   } else {
@@ -78,6 +159,25 @@ function getIntervalLength(message) {
   }
 }
 
+/*#########################################################################################
+# parseMessage function                                                                   #
+# _______________________________________________________________________________________ #
+# Description:                                                                            #
+# This function will parse the Discord message sent in by the user when they want to add  #
+# a reminder and extract the parts of the message necessary for the document to be        #
+# uploaded to the firestore database                                                      #
+# _______________________________________________________________________________________ #
+# Parameters:                                                                             # 
+# message: A string containing the Discord message from which the parts of the message    #
+#          document must be extracted                                                     #
+# _______________________________________________________________________________________ #
+# Returns:                                                                                #
+# messageObject: A JavaScript object containing fields for all of the information         #
+#                necessary for the reminder document to be stored. If an error is         #
+#                encountered at any point, it will be thrown and the user will be         #
+#                notified. Nothing is returned in this case                               #
+# _______________________________________________________________________________________ #
+#########################################################################################*/
 function parseMessage(message) {
   const messageObject = {
     title: "",
