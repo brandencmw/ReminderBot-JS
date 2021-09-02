@@ -4,7 +4,7 @@
 const firebase = require("./firebase");
 const config = require("./config");
 const errors = require("./errors");
-const botTriggers = ["!addremind", "!remremind", "!showremind"];
+const botTriggers = ["!addremind", "!remremind", "!showremind"]; //keywords that trigger the bot running
 
 /*#########################################################################################
 # getDatetime function                                                                    #
@@ -25,6 +25,8 @@ const botTriggers = ["!addremind", "!remremind", "!showremind"];
 #########################################################################################*/
 function getDatetime(message) {
   let datetimeString;
+  // If the reminder is recurring, the date is between two known words. Otherwise, the date
+  //is from 'at' onward
   if (message.includes("recurring")) {
     datetimeString = message
       .slice(message.indexOf("at") + 1, message.indexOf("recurring") - 1)
@@ -73,11 +75,14 @@ function formatTimeStamp(googleTimeStamp) {
 #########################################################################################*/
 async function showReminders() {
   const channel = config.client.channels.cache.get("829052528901357581");
-  const reminders = await config.db.collection("reminders").get();
+  const reminders = await config.db.collection("reminders").get(); //Get all reminders from db
   let formattedDate;
+  //If there are reminders in the database, send them to the user, otherwise notify them that
+  //there are none in the db
   if (!reminders.empty) {
     channel.send("You have the following reminders...");
 
+    // Loop through all reminders and display the title and next showtime to the user
     reminders.forEach((reminder) => {
       formattedDate = formatTimeStamp(reminder.data().showtime);
       channel.send(
@@ -107,8 +112,9 @@ async function showReminders() {
 # _______________________________________________________________________________________ #
 #########################################################################################*/
 function getIntervalVerb(message) {
-  let verb = message[message.indexOf("recurring") + 1];
+  let verb = message[message.indexOf("recurring") + 1]; //Verb is word after 'recurring'
   let shortVerb;
+  // Switch on found verb. Default case means a syntax error must be thrown
   switch (verb) {
     case "yearly":
       shortVerb = "y";
@@ -151,7 +157,8 @@ function getIntervalVerb(message) {
 # _______________________________________________________________________________________ #
 #########################################################################################*/
 function getIntervalLength(message) {
-  let number = message[message.indexOf("recurring") + 2];
+  let number = message[message.indexOf("recurring") + 2]; //Interval length should be two words after 'recurring'
+  // If a number is found, it is the recurrence length. Otherwise, a syntax error must be thrown
   if (Number.isInteger(parseFloat(number))) {
     return number;
   } else {
@@ -179,6 +186,7 @@ function getIntervalLength(message) {
 # _______________________________________________________________________________________ #
 #########################################################################################*/
 function parseMessage(message) {
+  // Define message object that will be added to db
   const messageObject = {
     title: "",
     showtime: "",
@@ -187,8 +195,11 @@ function parseMessage(message) {
     intervalLen: 0,
     link: "",
   };
-  let splitMessage = message.split(" ");
+  let splitMessage = message.split(" "); //Split message for easier parsing
+  // Message must include 'at' to find other necessary pieces of message
+  // Otherwise, a syntax error will be thrown
   if (message.includes(" at")) {
+    // Title is all words up until 'at'
     messageObject.title = splitMessage
       .splice(1, splitMessage.indexOf("at") - 1)
       .join(" ");
@@ -198,16 +209,19 @@ function parseMessage(message) {
     );
   }
 
-  messageObject.link = splitMessage.pop();
+  messageObject.link = splitMessage.pop(); //Link is last token in the list
   messageObject.recurring = splitMessage.includes("recurring");
 
   messageObject.showtime = getDatetime(splitMessage);
+  // If the moment object returned was invalid or the date specified is in the past,
+  // A date error will be thrown
   if (!messageObject.showtime.isValid()) {
     throw new errors.DateError("Date format invalid");
   } else if (messageObject.showtime.toDate().getTime() < new Date().getTime()) {
     throw new errors.DateError("Date cannot be a date in the past");
   }
 
+  // If the reminder is to recur, interval of recurrence must be specified
   if (messageObject.recurring) {
     messageObject.intervalVerb = getIntervalVerb(splitMessage);
     messageObject.intervalLen = getIntervalLength(splitMessage);
@@ -216,6 +230,8 @@ function parseMessage(message) {
   return messageObject;
 }
 
+// When the bot starts up, it will update reminder times in the database and begin
+// checking for reminders
 config.client.once("ready", () => {
   console.log(`Logged in as ${config.client.user.tag}!`);
   firebase.updateReminders();
@@ -224,27 +240,29 @@ config.client.once("ready", () => {
   }, 60000);
 });
 
+// When the channel receives a message it will be parsed for the correct action
 config.client.on("message", (msg) => {
   const channel = config.client.channels.cache.get("829052528901357581");
 
-  if (msg.author.bot) return;
+  if (msg.author.bot) return; //Don't want to take action if the bot sent the message
 
+  // If the message began with one of the bot triggers, action needs to be taken
   if (botTriggers.some((trigger) => msg.content.startsWith(trigger))) {
+    // Specifies how to handle add, remove, and show functions
     if (msg.content.startsWith("!addremind")) {
       try {
-        let messageObject = parseMessage(msg.content);
-        firebase.addReminder(messageObject);
+        let messageObject = parseMessage(msg.content); //Get messageObject to be added
+        firebase.addReminder(messageObject); //Add reminder to db
       } catch (err) {
-        channel.send(`${err.name}: ${err.message}`);
+        channel.send(`${err.name}: ${err.message}`); //Send error message to user
       }
     } else if (msg.content.startsWith("!remremind")) {
-      let title = msg.content.substring(msg.content.indexOf(" ") + 1);
-      console.log(title);
-      firebase.removeReminder(title);
+      let title = msg.content.substring(msg.content.indexOf(" ") + 1); //Title is all words after trigger
+      firebase.removeReminder(title); //Remove reminder from db
     } else if (msg.content.startsWith("!showremind")) {
-      showReminders();
+      showReminders(); //Show all reminders stored in db
     }
   }
 });
 
-config.client.login(process.env.DISCORD_TOKEN);
+config.client.login(process.env.DISCORD_TOKEN); //Start bot

@@ -131,7 +131,6 @@ async function updateReminders() {
         // Update time by specified interval until it is past the current time
         // so it can be shown again
         do {
-          console.log("Updating");
           updatedTime.add(
             reminder.data().intervalLen,
             reminder.data().intervalVerb
