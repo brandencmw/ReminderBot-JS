@@ -48,15 +48,22 @@ To use the display statement enter `!showremind`. Any text after this command wi
 ## Example Prompts
 
 ### `!addremind`
-    - `!addremind Science Class at 8:30 Monday, September 6, 2021 recurring weekly 1 zoom.us`
-    - `!addremind` Meeting at 14:05 Tuesday, September 7, 2021 google.meets`
+    - !addremind Science Class at 8:30 Monday, September 6, 2021 recurring weekly 1 zoom.us
+    - !addremind` Meeting at 14:05 Tuesday, September 7, 2021 google.meets
 
 
 ### `!remremind`
-    - `!remremind Science Class`
-    - `!remremind Meeting`
+    - !remremind Science Class
+    - !remremind Meeting
 
 
 ### `!showremind`
-    -!showremind`
-    -`showremind hey how's it going?` Reminder: any text after the prompt for this command will be ignored
+    -!showremind
+    -showremind hey how's it going? Reminder: any text after the prompt for this command will be ignored
+
+<p>&nbsp;</p>
+
+## How to Implement on Your Own Discord Server
+1. Follow the instructions in the Google Firestore documentation to set up a database and acquire an authorization key in the form of a JSON object
+2. Follow the instructions on Discord's developer page to set up a bot and save the token as an environment variable in a .env file with the name "DISCORD_TOKEN"
+3. Run the bot using your IDE or however you may be hosting this bot. Quickly use the !addremind prompt to ensure the bot is up and running as it will always send a return message.
